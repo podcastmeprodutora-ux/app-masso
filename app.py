@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, jsonify
 from database import db, init_db
 from models import Cliente, Produto, Servico, Pacote, Venda, Atendimento, ControleSessao, Financeiro
 from datetime import datetime, timedelta
+from flask_basicauth import BasicAuth
 
 app = Flask(__name__)
 app.config['BASIC_AUTH_USERNAME'] = 'mlopes'
