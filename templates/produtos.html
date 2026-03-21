@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Produtos{% endblock %}
+
+{% block content %}
+<div class="actions" style="justify-content: flex-end; margin-bottom: 24px;">
+    <button class="btn btn-primary" onclick="openModal('modal-produto')">Novo Produto</button>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Preço Base (R$)</th>
+            </tr>
+        </thead>
+        <tbody id="table-body">
+            <!-- Rows populated via JS -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Novo Produto -->
+<div class="modal" id="modal-produto">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Novo Produto</h3>
+            <button class="close-modal" onclick="closeModal('modal-produto')">&times;</button>
+        </div>
+        <form onsubmit="submitProduto(event)">
+            <div class="form-group">
+                <label>Nome do Produto</label>
+                <input type="text" id="prod-nome" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Preço de Venda (R$)</label>
+                <input type="number" step="0.01" id="prod-preco" class="form-control" required>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-produto')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadData() {
+        const data = await apiGet('/api/produtos');
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        data.forEach(p => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${p.nome}</strong></td>
+                    <td>R$ ${p.preco_venda.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+    }
+
+    async function submitProduto(e) {
+        e.preventDefault();
+        try {
+            await apiPost('/api/produtos', {
+                nome: document.getElementById('prod-nome').value,
+                preco_venda: document.getElementById('prod-preco').value
+            });
+            closeModal('modal-produto');
+            loadData();
+            document.getElementById('prod-nome').value = '';
+            document.getElementById('prod-preco').value = '';
+        } catch(err) { alert('Erro ao salvar produto.'); }
+    }
+
+    loadData();
+</script>
+{% endblock %}

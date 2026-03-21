@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+{% block title %}Início{% endblock %}
+
+{% block content %}
+<!-- Saudação -->
+<div style="margin-bottom: 24px;">
+    <h2 style="font-weight: 700; font-size: 1.4rem; margin-bottom: 4px;" id="saudacao">Olá!</h2>
+    <p style="color: var(--text-muted); font-size: 0.9rem;" id="data-hoje"></p>
+</div>
+
+<!-- Atalhos Rápidos -->
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 28px;">
+    <a href="/agenda" style="text-decoration:none;">
+        <div style="background: var(--card-bg); border-radius: 14px; padding: 18px 10px; text-align: center; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 1.8rem; margin-bottom: 6px; color: var(--primary);"><i data-lucide="calendar-days" style="width:28px;height:28px"></i></div>
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-main);">Consultar Agenda</div>
+        </div>
+    </a>
+    <div onclick="openBuscaCliente()" style="cursor:pointer;">
+        <div style="background: linear-gradient(135deg, var(--primary), var(--primary-hover)); border-radius: 14px; padding: 18px 10px; text-align: center; border: 1px solid transparent; box-shadow: 0 4px 12px rgba(99,102,241,0.25);">
+            <div style="font-size: 1.8rem; margin-bottom: 6px; color: white;"><i data-lucide="calendar-plus" style="width:28px;height:28px"></i></div>
+            <div style="font-size: 0.75rem; font-weight: 600; color: white;">Novo Atendimento</div>
+        </div>
+    </div>
+</div>
+
+<!-- Atalhos Secundários -->
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px;">
+    <a href="/clientes" style="text-decoration:none;">
+        <div style="background: var(--card-bg); border-radius: 14px; padding: 14px 10px; text-align: center; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 1.4rem; margin-bottom: 4px; color: var(--text-muted);"><i data-lucide="users" style="width:22px;height:22px"></i></div>
+            <div style="font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">Clientes</div>
+        </div>
+    </a>
+    <a href="/financeiro" style="text-decoration:none;">
+        <div style="background: var(--card-bg); border-radius: 14px; padding: 14px 10px; text-align: center; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 1.4rem; margin-bottom: 4px; color: var(--text-muted);"><i data-lucide="wallet" style="width:22px;height:22px"></i></div>
+            <div style="font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">Caixa</div>
+        </div>
+    </a>
+    <a href="/servicos" style="text-decoration:none;">
+        <div style="background: var(--card-bg); border-radius: 14px; padding: 14px 10px; text-align: center; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 1.4rem; margin-bottom: 4px; color: var(--text-muted);"><i data-lucide="settings" style="width:22px;height:22px"></i></div>
+            <div style="font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">Serviços</div>
+        </div>
+    </a>
+</div>
+
+<!-- Métricas do Mês -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px;">
+    <div class="card">
+        <div class="card-title">Faturado este Mês</div>
+        <div class="card-value" id="val-faturamento" style="color: var(--success); font-size: 1.5rem;">R$ 0,00</div>
+    </div>
+    <div class="card" id="card-devendo">
+        <div class="card-title">Pagamento Pendente</div>
+        <div class="card-value" id="val-devendo" style="font-size: 1.5rem;">0</div>
+    </div>
+</div>
+
+<!-- Próximos Atendimentos -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+    <h3 style="font-weight: 600; font-size: 1.1rem; display:flex; align-items:center; gap:8px;"><i data-lucide="calendar-clock" style="width:20px;height:20px;color:var(--primary)"></i> Próximos Atendimentos</h3>
+    <a href="/agenda" style="font-size:0.8rem; color:var(--primary); text-decoration:none; font-weight:600;">Ver todos →</a>
+</div>
+<div class="card-list" id="proximos-list">
+    <p style="color: var(--text-muted); text-align: center; padding: 24px;">Carregando...</p>
+</div>
+
+<!-- Modal 1: Buscar e Selecionar Cliente -->
+<div class="modal" id="modal-busca-cliente">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Selecionar Cliente</h3>
+            <button class="close-modal" onclick="closeModal('modal-busca-cliente')">&times;</button>
+        </div>
+        <div class="search-bar" style="margin-bottom: 16px;">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" id="busca-cliente-input" class="form-control" placeholder="Buscar por nome..." oninput="filtrarClientesModal()" style="padding-left: 40px;">
+        </div>
+        <div id="busca-cliente-list" style="max-height: 350px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+</div>
+
+<!-- Modal 2: Agendar Sessão (idêntico ao de clientes.html) -->
+<div class="modal" id="modal-novo-atendimento">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Agendar Sessão</h3>
+            <button class="close-modal" onclick="closeModal('modal-novo-atendimento')">&times;</button>
+        </div>
+        <div style="margin-bottom:16px; padding:10px 14px; background:var(--primary-soft); border-radius:10px;">
+            <span style="font-size:0.78rem; color:var(--text-muted);">CLIENTE</span>
+            <div style="font-weight:600; font-size:0.95rem;" id="dash-atend-cliente-nome"></div>
+        </div>
+        <form onsubmit="submitNovoAtendimento(event)">
+            <input type="hidden" id="dash-atend-cliente-id">
+            <div class="form-group">
+                <label>Data e Hora</label>
+                <input type="datetime-local" id="dash-atend-data" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>O que será feito nesta sessão?</label>
+                <select id="dash-atend-modalidade" class="form-control" onchange="toggleDashModalidade()">
+                    <option value="avulso">Serviço Avulso (Nova Venda)</option>
+                    <option value="pacote_novo">Comprar um Novo Pacote</option>
+                    <option value="pacote_ativo">Abater de Pacote Existente</option>
+                </select>
+            </div>
+            <!-- Bloco Avulso -->
+            <div id="dash-blk-avulso">
+                <div class="form-group">
+                    <label>Serviço Base</label>
+                    <select id="dash-atend-servico" class="form-control"></select>
+                </div>
+            </div>
+            <!-- Bloco Pacote Novo -->
+            <div id="dash-blk-pacote-novo" style="display:none;">
+                <div class="form-group">
+                    <label>Pacote Oferecido</label>
+                    <select id="dash-atend-pacote-novo" class="form-control"></select>
+                </div>
+            </div>
+            <!-- Bloco Pacote Ativo -->
+            <div id="dash-blk-pacote-ativo" style="display:none;">
+                <div class="form-group">
+                    <label>Pacote do Cliente com Saldo</label>
+                    <select id="dash-atend-pacote-ativo" class="form-control"></select>
+                </div>
+                <small id="dash-msg-sem-pacote" style="color:var(--danger); display:none;">Este cliente não possui pacotes ativos.</small>
+            </div>
+            <!-- Financeiro -->
+            <div id="dash-blk-financeiro">
+                <div class="form-group">
+                    <label>Valor Total (R$)</label>
+                    <input type="number" step="0.01" id="dash-atend-valor" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Status do Pagamento</label>
+                    <select id="dash-atend-pagamento-status" class="form-control" onchange="toggleDashPagamentoForma()">
+                        <option value="pendente">Pendente (Cobrar Depois)</option>
+                        <option value="pago">Pago Agora</option>
+                    </select>
+                </div>
+                <div class="form-group" id="dash-blk-forma-pgto" style="display:none;">
+                    <label>Forma de Recebimento</label>
+                    <select id="dash-atend-forma-pgto" class="form-control">
+                        <option value="pix">PIX</option>
+                        <option value="cartao">Cartão</option>
+                        <option value="dinheiro">Dinheiro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-novo-atendimento')">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="dash-btn-submit-atend">Confirmar Agendamento</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Saudação dinâmica
+    const agora = new Date();
+    const hora = agora.getHours();
+    let saudTxt = 'Bom dia!';
+    if (hora >= 12 && hora < 18) saudTxt = 'Boa tarde!';
+    else if (hora >= 18) saudTxt = 'Boa noite!';
+    document.getElementById('saudacao').innerText = saudTxt;
+
+    const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    document.getElementById('data-hoje').innerText = `${diasSemana[agora.getDay()]}, ${agora.getDate()} de ${meses[agora.getMonth()]}`;
+
+    // ===== Data Stores =====
+    let dashClientes = [];
+    let dashServicos = [];
+    let dashPacotes = [];
+
+    // ===== Dashboard Load =====
+    async function loadDashboard() {
+        const data = await apiGet('/api/dashboard');
+
+        document.getElementById('val-faturamento').innerText = `R$ ${data.faturamento_mes.toFixed(2).replace('.', ',')}`;
+
+        const devendo = data.clientes_devendo;
+        const cardDevendo = document.getElementById('card-devendo');
+        document.getElementById('val-devendo').innerText = devendo;
+        if (devendo > 0) {
+            cardDevendo.style.borderLeft = '4px solid var(--danger)';
+        }
+
+        // Próximos Atendimentos
+        const list = document.getElementById('proximos-list');
+        const proximos = data.proximos_atendimentos;
+
+        if (!proximos || proximos.length === 0) {
+            list.innerHTML = `
+                <div style="text-align: center; padding: 32px 16px; color: var(--text-muted);">
+                    <div style="font-size: 2.5rem; margin-bottom: 8px; color:var(--success)"><i data-lucide="calendar-check" style="width:40px;height:40px"></i></div>
+                    <p style="font-weight: 500;">Nenhum atendimento agendado.</p>
+                    <p style="font-size: 0.8rem;">Seus próximos compromissos aparecerão aqui.</p>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        list.innerHTML = '';
+        proximos.forEach(a => {
+            const hojeBadge = a.is_hoje
+                ? '<span class="badge badge-primary" style="font-size:0.65rem;">HOJE</span>'
+                : '';
+
+            list.innerHTML += `
+                <div class="list-card" ${a.is_hoje ? 'style="border-left: 3px solid var(--primary);"' : ''}>
+                    <div class="list-card-title">
+                        <span style="color: var(--primary); font-weight: 700; margin-right: 8px;">${a.hora}</span>
+                        ${a.cliente_nome}
+                    </div>
+                    <div class="list-card-subtitle">${a.servico_nome} • ${a.origem.toUpperCase()}</div>
+                    <div class="list-card-details">
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <span class="badge badge-secondary">${a.data}</span>
+                            ${hojeBadge}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ===== Novo Atendimento Flow =====
+
+    // Step 1: Open client search modal
+    async function openBuscaCliente() {
+        // Load clients if not loaded
+        if (dashClientes.length === 0) {
+            dashClientes = await apiGet('/api/clientes');
+        }
+        document.getElementById('busca-cliente-input').value = '';
+        renderClientesList(dashClientes);
+        openModal('modal-busca-cliente');
+        setTimeout(() => document.getElementById('busca-cliente-input').focus(), 300);
+    }
+
+    function renderClientesList(list) {
+        const container = document.getElementById('busca-cliente-list');
+        if (list.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:24px; color:var(--text-muted); font-size:0.85rem;">Nenhum cliente encontrado.</div>';
+            return;
+        }
+        container.innerHTML = '';
+        list.forEach(c => {
+            container.innerHTML += `
+                <div onclick="selecionarCliente(${c.id}, '${c.nome.replace(/'/g, "\\'")}')" 
+                     style="padding:12px 14px; border-radius:10px; border:1px solid var(--border-color); background:var(--card-bg); cursor:pointer; transition:background 0.15s;"
+                     onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background='var(--card-bg)'">
+                    <div style="font-weight:600; font-size:0.9rem;">${c.nome}</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);">${c.telefone || 'Sem telefone'}</div>
+                </div>
+            `;
+        });
+    }
+
+    function filtrarClientesModal() {
+        const termo = document.getElementById('busca-cliente-input').value.toLowerCase();
+        const filtered = dashClientes.filter(c => c.nome.toLowerCase().includes(termo));
+        renderClientesList(filtered);
+    }
+
+    // Step 2: Client selected → open scheduling modal
+    async function selecionarCliente(cliId, cliNome) {
+        closeModal('modal-busca-cliente');
+
+        // Load services and packages if not done
+        if (dashServicos.length === 0) {
+            dashServicos = await apiGet('/api/servicos');
+            let sOpts = dashServicos.map(s => `<option value="${s.id}">${s.nome} [${s.local}] - R$ ${s.preco_base}</option>`);
+            document.getElementById('dash-atend-servico').innerHTML = sOpts.join('');
+        }
+        if (dashPacotes.length === 0) {
+            dashPacotes = await apiGet('/api/pacotes');
+            let pOpts = dashPacotes.map(p => `<option value="${p.id}">${p.nome} - R$ ${p.valor_total}</option>`);
+            document.getElementById('dash-atend-pacote-novo').innerHTML = pOpts.join('');
+        }
+
+        // Load active packages for this client
+        const pacotesAtivos = await apiGet(`/api/clientes/${cliId}/pacotes_ativos`);
+        let optPacotes = '';
+        pacotesAtivos.forEach(p => {
+            optPacotes += `<option value="${p.venda_id}" data-servico="${p.servico_id}">#${p.venda_id} - ${p.pacote_nome} (${p.qtd_restante} restantes)</option>`;
+        });
+        document.getElementById('dash-atend-pacote-ativo').innerHTML = optPacotes;
+
+        // Set client info
+        document.getElementById('dash-atend-cliente-id').value = cliId;
+        document.getElementById('dash-atend-cliente-nome').textContent = cliNome;
+
+        // Reset form
+        document.getElementById('dash-atend-modalidade').value = 'avulso';
+        document.getElementById('dash-atend-valor').value = '';
+        document.getElementById('dash-atend-pagamento-status').value = 'pendente';
+        document.getElementById('dash-btn-submit-atend').disabled = false;
+
+        const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+        document.getElementById('dash-atend-data').value = localISOTime;
+
+        toggleDashModalidade();
+        toggleDashPagamentoForma();
+        openModal('modal-novo-atendimento');
+    }
+
+    // ===== Toggle helpers =====
+    function toggleDashModalidade() {
+        const mod = document.getElementById('dash-atend-modalidade').value;
+        document.getElementById('dash-blk-avulso').style.display = 'none';
+        document.getElementById('dash-blk-pacote-novo').style.display = 'none';
+        document.getElementById('dash-blk-pacote-ativo').style.display = 'none';
+        document.getElementById('dash-blk-financeiro').style.display = 'none';
+        document.getElementById('dash-msg-sem-pacote').style.display = 'none';
+
+        if (mod === 'avulso') {
+            document.getElementById('dash-blk-avulso').style.display = 'block';
+            document.getElementById('dash-blk-financeiro').style.display = 'block';
+            updateDashValor('avulso');
+        } else if (mod === 'pacote_novo') {
+            document.getElementById('dash-blk-pacote-novo').style.display = 'block';
+            document.getElementById('dash-blk-financeiro').style.display = 'block';
+            updateDashValor('pacote_novo');
+        } else if (mod === 'pacote_ativo') {
+            document.getElementById('dash-blk-pacote-ativo').style.display = 'block';
+            if (document.getElementById('dash-atend-pacote-ativo').options.length === 0) {
+                document.getElementById('dash-msg-sem-pacote').style.display = 'block';
+                document.getElementById('dash-btn-submit-atend').disabled = true;
+            } else {
+                document.getElementById('dash-btn-submit-atend').disabled = false;
+            }
+        }
+    }
+
+    function toggleDashPagamentoForma() {
+        const status = document.getElementById('dash-atend-pagamento-status').value;
+        document.getElementById('dash-blk-forma-pgto').style.display = (status === 'pago') ? 'block' : 'none';
+    }
+
+    function updateDashValor(tipo) {
+        if (tipo === 'avulso') {
+            const servId = parseInt(document.getElementById('dash-atend-servico').value);
+            const serv = dashServicos.find(s => s.id === servId);
+            if (serv) document.getElementById('dash-atend-valor').value = serv.preco_base;
+        } else if (tipo === 'pacote_novo') {
+            const pacId = parseInt(document.getElementById('dash-atend-pacote-novo').value);
+            const pac = dashPacotes.find(p => p.id === pacId);
+            if (pac) document.getElementById('dash-atend-valor').value = pac.valor_total;
+        }
+    }
+
+    // Change listeners for auto-valor
+    document.getElementById('dash-atend-servico').addEventListener('change', () => updateDashValor('avulso'));
+    document.getElementById('dash-atend-pacote-novo').addEventListener('change', () => updateDashValor('pacote_novo'));
+
+    // ===== Submit =====
+    async function submitNovoAtendimento(e) {
+        e.preventDefault();
+        const cliId = document.getElementById('dash-atend-cliente-id').value;
+        const mod = document.getElementById('dash-atend-modalidade').value;
+        const dataAtend = document.getElementById('dash-atend-data').value;
+
+        try {
+            if (mod === 'avulso' || mod === 'pacote_novo') {
+                const isAvulso = mod === 'avulso';
+                await apiPost('/api/vendas', {
+                    cliente_id: cliId,
+                    tipo: isAvulso ? 'avulso' : 'pacote',
+                    servico_id: isAvulso ? document.getElementById('dash-atend-servico').value : null,
+                    pacote_id: !isAvulso ? document.getElementById('dash-atend-pacote-novo').value : null,
+                    data_agendamento: dataAtend,
+                    valor_total: document.getElementById('dash-atend-valor').value,
+                    status_pagamento: document.getElementById('dash-atend-pagamento-status').value,
+                    forma_pagamento: document.getElementById('dash-atend-forma-pgto').value
+                });
+                alert('Sessão agendada com registro financeiro lançado com sucesso!');
+            } else if (mod === 'pacote_ativo') {
+                const selectPacote = document.getElementById('dash-atend-pacote-ativo');
+                const vendaId = selectPacote.value;
+                const servicoId = selectPacote.options[selectPacote.selectedIndex].getAttribute('data-servico');
+
+                await apiPost('/api/atendimentos', {
+                    cliente_id: cliId,
+                    servico_id: servicoId,
+                    data_atendimento: dataAtend,
+                    origem: 'pacote',
+                    venda_id: vendaId,
+                    status_atendimento: 'agendado',
+                    valor: 0.0
+                });
+                alert('Sessão agendada! O saldo será deduzido ao concluir.');
+            }
+            closeModal('modal-novo-atendimento');
+            loadDashboard();
+        } catch(err) {
+            alert('Erro ao processar a requisição.');
+        }
+    }
+
+    loadDashboard();
+</script>
+{% endblock %}

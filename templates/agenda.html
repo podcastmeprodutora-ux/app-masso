@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Agenda e Pacotes{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px;">
+    <h3 style="font-weight: 500;">Banco de Sessões (Pacotes Ativos)</h3>
+</div>
+<div class="card-list" id="pacotes-list" style="margin-bottom: 40px;"></div>
+
+<div style="margin-bottom: 16px;">
+    <h3 style="font-weight: 500; margin-bottom: 12px;">Calendário de Atendimentos</h3>
+    <div class="filter-row">
+        <div class="filter-group">
+            <label>Status</label>
+            <select id="filter-atend" class="form-control" onchange="loadAtendimentos()">
+                <option value="">Todos</option>
+                <option value="hoje">Para Hoje</option>
+                <option value="pendente">Agendados Pendentes</option>
+                <option value="realizado">Realizados</option>
+                <option value="realizados_nao_pagos">Realizados Não Pagos</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Ordenar por</label>
+            <select id="sort-atend" class="form-control" onchange="loadAtendimentos()">
+                <option value="data_desc">Data (Mais recentes)</option>
+                <option value="data_asc">Data (Mais antigos)</option>
+                <option value="cliente_asc">Cliente (A → Z)</option>
+                <option value="cliente_desc">Cliente (Z → A)</option>
+                <option value="servico_asc">Serviço (A → Z)</option>
+                <option value="servico_desc">Serviço (Z → A)</option>
+            </select>
+        </div>
+    </div>
+</div>
+<div class="card-list" id="atendimentos-list"></div>
+
+<!-- Modal Agendar Pacote -->
+<div class="modal" id="modal-agendar-pacote">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3>Agendar Sessão do Pacote</h3>
+            <button class="close-modal" onclick="closeModal('modal-agendar-pacote')">&times;</button>
+        </div>
+        <form onsubmit="submitAgendamentoPacote(event)">
+            <input type="hidden" id="pac-cliente-id">
+            <input type="hidden" id="pac-servico-id">
+            <input type="hidden" id="pac-venda-id">
+            <div class="form-group">
+                <label>Data e Hora</label>
+                <input type="datetime-local" id="pac-data" class="form-control" required>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-agendar-pacote')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Adicionar à Agenda</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadControles() {
+        const data = await apiGet('/api/controle_sessoes');
+        const list = document.getElementById('pacotes-list');
+        list.innerHTML = '';
+
+        if (data.length === 0) {
+            list.innerHTML = '<div style="text-align:center; padding:30px 20px; color:var(--text-muted); font-size:0.9rem;">Nenhum pacote ativo no momento.</div>';
+            return;
+        }
+
+        data.forEach(p => {
+            let statusBadge = '';
+            if (p.qtd_restante === 0) {
+                statusBadge = '<span class="badge badge-success">Concluído</span>';
+            } else if (p.qtd_utilizada === 0) {
+                statusBadge = '<span class="badge badge-primary" style="background:var(--primary);color:white">A Iniciar</span>';
+            } else {
+                statusBadge = '<span class="badge" style="background:#f59e0b; color:white;">Em Andamento</span>';
+            }
+            
+            const actionBtns = p.qtd_restante > 0
+                ? `<button onclick="agendarPacote(${p.venda_id}, ${p.cliente_id}, ${p.servico_id}); toggleMenu('menu-pac-${p.id}')"><i data-lucide="calendar-plus" style="width:15px;height:15px;vertical-align:middle;margin-right:4px"></i> Agendar p/ Futuro</button>
+                   <button onclick="baixarSessao(${p.id}); toggleMenu('menu-pac-${p.id}')"><i data-lucide="check-circle" style="width:15px;height:15px;vertical-align:middle;margin-right:4px"></i> Baixar Sessão Hoje</button>`
+                : '';
+                
+            let menuHtml = '';
+            if (p.qtd_restante > 0) {
+                menuHtml = `
+                    <button class="menu-btn" onclick="toggleMenu('menu-pac-${p.id}')">⋮</button>
+                    <div class="dropdown-menu" id="menu-pac-${p.id}">
+                        ${actionBtns}
+                    </div>
+                `;
+            }
+
+            list.innerHTML += `
+                <div class="list-card">
+                    ${menuHtml}
+                    <div class="list-card-title">${p.cliente_nome} <span style="font-weight:normal; font-size:0.85rem">(${p.pacote_nome})</span></div>
+                    <div class="list-card-subtitle"><strong style="color:var(--primary)">${p.qtd_restante}</strong> sessões restantes (de ${p.qtd_total})</div>
+                    <div class="list-card-details">
+                        ${statusBadge}
+                    </div>
+                </div>
+            `;
+        });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    async function baixarSessao(id) {
+        if (!confirm('Registrar como sessão de pacote realizada na data de HOJE?')) return;
+        try {
+            await apiPost('/api/controle_sessoes/' + id + '/baixar_sessao', {});
+            loadControles();
+            loadAtendimentos();
+        } catch(e) {
+            alert('Erro ao deduzir sessão.');
+        }
+    }
+
+    function agendarPacote(venda_id, cliente_id, servico_id) {
+        document.getElementById('pac-venda-id').value = venda_id;
+        document.getElementById('pac-cliente-id').value = cliente_id;
+        document.getElementById('pac-servico-id').value = servico_id;
+        document.getElementById('pac-data').value = '';
+        openModal('modal-agendar-pacote');
+    }
+
+    async function submitAgendamentoPacote(e) {
+        e.preventDefault();
+        await apiPost('/api/atendimentos', {
+            cliente_id: document.getElementById('pac-cliente-id').value,
+            servico_id: document.getElementById('pac-servico-id').value,
+            data_atendimento: document.getElementById('pac-data').value,
+            origem: 'pacote',
+            venda_id: document.getElementById('pac-venda-id').value,
+            status_atendimento: 'agendado',
+            valor: 0.0
+        });
+        closeModal('modal-agendar-pacote');
+        loadAtendimentos();
+    }
+
+    async function loadAtendimentos() {
+        const filtro = document.getElementById('filter-atend').value;
+        const ordenar = document.getElementById('sort-atend').value;
+        const data = await apiGet(`/api/atendimentos?filtro=${filtro}&ordenar=${ordenar}`);
+        const list = document.getElementById('atendimentos-list');
+        list.innerHTML = '';
+
+        if (data.length === 0) {
+            list.innerHTML = '<div style="text-align:center; padding:30px 20px; color:var(--text-muted); font-size:0.9rem;">Nenhum atendimento encontrado para o filtro selecionado.</div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        data.forEach(a => {
+            const statusBadge = a.status_atendimento === 'realizado' 
+                ? '<span class="badge badge-success">Realizado</span>' 
+                : '<span class="badge badge-warning">Agendado</span>';
+
+            let pagBadge = '';
+            if (a.venda_status === 'pendente') {
+                pagBadge = '<span class="badge badge-danger">Pgto Pendente</span>';
+            } else if (a.venda_status === 'pago') {
+                pagBadge = '<span class="badge badge-info">Pago</span>';
+            }
+
+            const hojeBadge = a.is_hoje
+                ? '<span class="badge badge-primary" style="font-size:0.65rem;">HOJE</span>'
+                : '';
+
+            let menuHtml = '';
+            if (a.status_atendimento !== 'realizado') {
+                menuHtml = `
+                    <button class="menu-btn" onclick="toggleMenu('menu-atend-${a.id}')">⋮</button>
+                    <div class="dropdown-menu" id="menu-atend-${a.id}">
+                        <button onclick="realizar(${a.id}); toggleMenu('menu-atend-${a.id}')"><i data-lucide="check-circle" style="width:15px;height:15px;vertical-align:middle;margin-right:4px"></i> Concluir Sessão</button>
+                    </div>
+                `;
+            }
+
+            const cardStyle = a.is_hoje ? 'border-left: 3px solid var(--primary);' : '';
+
+            list.innerHTML += `
+                <div class="list-card" style="${cardStyle}">
+                    ${menuHtml}
+                    <div class="list-card-title">
+                        <span style="color: var(--primary); font-weight: 700; margin-right: 6px;">${a.hora}</span>
+                        ${a.cliente_nome}
+                        <span style="font-weight:normal; font-size:0.82rem; color:var(--text-muted);"> (${a.origem.toUpperCase()})</span>
+                    </div>
+                    <div class="list-card-subtitle">
+                        <i data-lucide="briefcase-medical" style="width:13px;height:13px;vertical-align:middle;margin-right:3px;color:var(--text-muted)"></i>
+                        ${a.servico_nome} • ${a.data_raw}
+                    </div>
+                    <div class="list-card-details">
+                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                            ${statusBadge}
+                            ${pagBadge}
+                            ${hojeBadge}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    async function realizar(id) {
+        if(confirm('Concluir sessão? Se oriunda de pacote, a sessão restante também será deduzida.')){
+            await apiPost(`/api/atendimentos/${id}/realizar`, {});
+            loadAtendimentos();
+            loadControles();
+        }
+    }
+
+    loadControles();
+    loadAtendimentos();
+</script>
+{% endblock %}

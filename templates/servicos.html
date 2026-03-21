@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Serviços e Pacotes{% endblock %}
+
+{% block content %}
+<div class="actions" style="justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <h3 style="font-weight: 500;">Serviços Base</h3>
+    <button class="btn btn-primary" onclick="openNovoServico()">Novo Serviço</button>
+</div>
+<div class="card-list" id="servicos-list" style="margin-bottom: 40px;"></div>
+
+<div class="actions" style="justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <h3 style="font-weight: 500;">Pacotes (Agrupamentos)</h3>
+    <button class="btn btn-primary" onclick="openNovoPacote()">Novo Pacote</button>
+</div>
+<div class="card-list" id="pacotes-list"></div>
+
+<!-- Modal Novo Serviço -->
+<div class="modal" id="modal-servico">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Novo Serviço</h3>
+            <button class="close-modal" onclick="closeModal('modal-servico')">&times;</button>
+        </div>
+        <form onsubmit="submitServico(event)">
+            <input type="hidden" id="serv-id">
+            <div class="form-group">
+                <label>Nome do Serviço</label>
+                <input type="text" id="serv-nome" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Local de Atendimento</label>
+                <select id="serv-local" class="form-control" required>
+                    <option value="Estúdio">Estúdio</option>
+                    <option value="Domicílio">Domicílio</option>
+                    <option value="Praia">Praia</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Duração Média (min)</label>
+                <input type="number" id="serv-duracao" class="form-control" value="60" required>
+            </div>
+            <div class="form-group">
+                <label>Preço Base (R$)</label>
+                <input type="number" step="0.01" id="serv-preco" class="form-control" required>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-servico')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Serviço</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Novo Pacote -->
+<div class="modal" id="modal-pacote">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Novo Pacote</h3>
+            <button class="close-modal" onclick="closeModal('modal-pacote')">&times;</button>
+        </div>
+        <form onsubmit="submitPacote(event)">
+            <input type="hidden" id="pac-id">
+            <div class="form-group">
+                <label>Nome do Pacote (ex: Pacote 10 Drenagens)</label>
+                <input type="text" id="pac-nome" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Serviço Vinculado</label>
+                <select id="pac-servico" class="form-control" required></select>
+            </div>
+            <div class="form-group">
+                <label>Quantidade de Sessões</label>
+                <input type="number" id="pac-qtd" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Validade Média (em dias)</label>
+                <input type="number" id="pac-validade" class="form-control" value="90" required>
+            </div>
+            <div class="form-group">
+                <label>Valor Total do Pacote (R$)</label>
+                <input type="number" step="0.01" id="pac-valor" class="form-control" required>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-pacote')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Pacote</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadServicos() {
+        const data = await apiGet('/api/servicos');
+        window.servicosData = data;
+        const list = document.getElementById('servicos-list');
+        const selectPac = document.getElementById('pac-servico');
+        list.innerHTML = '';
+        selectPac.innerHTML = '';
+        
+        data.forEach(s => {
+            list.innerHTML += `
+                <div class="list-card">
+                    <button class="menu-btn" onclick="toggleMenu('menu-serv-${s.id}')">⋮</button>
+                    <div class="dropdown-menu" id="menu-serv-${s.id}">
+                        <button onclick="editServico(${s.id}); toggleMenu('menu-serv-${s.id}')"><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:middle;margin-right:6px"></i>Editar</button>
+                        <button class="text-danger" onclick="deleteServico(${s.id}); toggleMenu('menu-serv-${s.id}')"><i data-lucide="trash-2" style="width:15px;height:15px;vertical-align:middle;margin-right:6px"></i>Excluir</button>
+                    </div>
+                    
+                    <div class="list-card-title">${s.nome}</div>
+                    <div class="list-card-subtitle">${s.duracao_min} min • ${s.local}</div>
+                    <div class="list-card-details">
+                        <span style="font-weight:600; color:var(--text-main);">R$ ${s.preco_base.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                </div>
+            `;
+            selectPac.innerHTML += `<option value="${s.id}">${s.nome} (${s.local})</option>`;
+        });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    async function loadPacotes() {
+        const data = await apiGet('/api/pacotes');
+        window.pacotesData = data;
+        const list = document.getElementById('pacotes-list');
+        list.innerHTML = '';
+        
+        data.forEach(p => {
+            list.innerHTML += `
+                <div class="list-card">
+                    <button class="menu-btn" onclick="toggleMenu('menu-pacote-${p.id}')">⋮</button>
+                    <div class="dropdown-menu" id="menu-pacote-${p.id}">
+                        <button onclick="editPacote(${p.id}); toggleMenu('menu-pacote-${p.id}')"><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:middle;margin-right:6px"></i>Editar</button>
+                        <button class="text-danger" onclick="deletePacote(${p.id}); toggleMenu('menu-pacote-${p.id}')"><i data-lucide="trash-2" style="width:15px;height:15px;vertical-align:middle;margin-right:6px"></i>Excluir</button>
+                    </div>
+                    
+                    <div class="list-card-title">${p.nome}</div>
+                    <div class="list-card-subtitle">Cobre: ${p.servico_nome} | Validade: ${p.validade_dias} dias</div>
+                    <div class="list-card-details">
+                        <span class="badge badge-info">${p.qtd_sessoes} Sessões</span>
+                        <span style="font-weight:600; color:var(--text-main);">R$ ${p.valor_total.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                </div>
+            `;
+        });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    async function submitServico(e) {
+        e.preventDefault();
+        const id = document.getElementById('serv-id').value;
+        const payload = {
+            nome: document.getElementById('serv-nome').value,
+            local: document.getElementById('serv-local').value,
+            duracao_min: document.getElementById('serv-duracao').value,
+            preco_base: document.getElementById('serv-preco').value,
+            tipo: 'avulso'
+        };
+        if(id) {
+            await fetch('/api/servicos/' + id, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await apiPost('/api/servicos', payload);
+        }
+        closeModal('modal-servico');
+        loadServicos();
+    }
+
+    function openNovoServico() {
+        document.getElementById('serv-id').value = '';
+        document.getElementById('serv-nome').value = '';
+        document.getElementById('serv-local').value = 'Estúdio';
+        document.getElementById('serv-duracao').value = '60';
+        document.getElementById('serv-preco').value = '';
+        openModal('modal-servico');
+    }
+
+    function editServico(id) {
+        const s = window.servicosData.find(x => x.id === id);
+        if(!s) return;
+        document.getElementById('serv-id').value = s.id;
+        document.getElementById('serv-nome').value = s.nome;
+        document.getElementById('serv-local').value = s.local || 'Estúdio';
+        document.getElementById('serv-duracao').value = s.duracao_min || 60;
+        document.getElementById('serv-preco').value = s.preco_base || '';
+        openModal('modal-servico');
+    }
+
+    async function deleteServico(id) {
+        if(!confirm("Deseja realmente excluir este serviço? Ele não pode estar atrelado a pacotes/vendas antigas.")) return;
+        const res = await fetch('/api/servicos/' + id, { method: 'DELETE' });
+        if(res.status === 400) {
+            const data = await res.json();
+            alert(data.error);
+        } else {
+            loadServicos();
+        }
+    }
+
+    async function submitPacote(e) {
+        e.preventDefault();
+        const id = document.getElementById('pac-id').value;
+        const payload = {
+            nome: document.getElementById('pac-nome').value,
+            servico_id: document.getElementById('pac-servico').value,
+            qtd_sessoes: document.getElementById('pac-qtd').value,
+            validade_dias: document.getElementById('pac-validade').value,
+            valor_total: document.getElementById('pac-valor').value
+        };
+
+        if(id) {
+            await fetch('/api/pacotes/' + id, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await apiPost('/api/pacotes', payload);
+        }
+        closeModal('modal-pacote');
+        loadPacotes();
+    }
+
+    function openNovoPacote() {
+        document.getElementById('pac-id').value = '';
+        document.getElementById('pac-nome').value = '';
+        document.getElementById('pac-qtd').value = '';
+        document.getElementById('pac-validade').value = '90';
+        document.getElementById('pac-valor').value = '';
+        openModal('modal-pacote');
+    }
+
+    function editPacote(id) {
+        const p = window.pacotesData.find(x => x.id === id);
+        if(!p) return;
+        document.getElementById('pac-id').value = p.id;
+        document.getElementById('pac-nome').value = p.nome;
+        document.getElementById('pac-servico').value = p.servico_id;
+        document.getElementById('pac-qtd').value = p.qtd_sessoes;
+        document.getElementById('pac-validade').value = p.validade_dias;
+        document.getElementById('pac-valor').value = p.valor_total;
+        openModal('modal-pacote');
+    }
+
+    async function deletePacote(id) {
+        if(!confirm("Deseja realmente excluir este pacote?")) return;
+        const res = await fetch('/api/pacotes/' + id, { method: 'DELETE' });
+        if(res.status === 400) {
+            const data = await res.json();
+            alert(data.error);
+        } else {
+            loadPacotes();
+        }
+    }
+
+    loadServicos();
+    loadPacotes();
+</script>
+{% endblock %}

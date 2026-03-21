@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MassoGestão</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <main class="main-content">
+        <header class="header">
+            <h2>{% block title %}Dashboard{% endblock %}</h2>
+            <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Alternar Tema">
+                <i data-lucide="moon" style="width:18px;height:18px"></i>
+            </button>
+        </header>
+        
+        <div class="content-area">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+            <span class="icon"><i data-lucide="home" style="width:20px;height:20px"></i></span>
+            <span>Início</span>
+        </a>
+        <a href="/agenda" class="nav-item {% if '/agenda' in request.path %}active{% endif %}">
+            <span class="icon"><i data-lucide="calendar-days" style="width:20px;height:20px"></i></span>
+            <span>Agenda</span>
+        </a>
+        <a href="/clientes" class="nav-item {% if '/clientes' in request.path %}active{% endif %}">
+            <span class="icon"><i data-lucide="users" style="width:20px;height:20px"></i></span>
+            <span>Clientes</span>
+        </a>
+        <a href="/financeiro" class="nav-item {% if '/financeiro' in request.path %}active{% endif %}">
+            <span class="icon"><i data-lucide="wallet" style="width:20px;height:20px"></i></span>
+            <span>Caixa</span>
+        </a>
+        <a href="/servicos" class="nav-item {% if '/servicos' in request.path %}active{% endif %}">
+            <span class="icon"><i data-lucide="settings" style="width:20px;height:20px"></i></span>
+            <span>Serviços</span>
+        </a>
+    </nav>
+
+    <script>
+        // Funções utilitárias globais
+        const apiPost = async (url, data) => {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            return res.json();
+        };
+
+        const apiGet = async (url) => {
+            const res = await fetch(url);
+            return res.json();
+        };
+
+        const openModal = (id) => document.getElementById(id).classList.add('active');
+        const closeModal = (id) => document.getElementById(id).classList.remove('active');
+        
+        // Função para os Menus de 3 pontinhos nos Cards
+        function toggleMenu(id) {
+            const allMenus = document.querySelectorAll('.dropdown-menu');
+            allMenus.forEach(m => { if(m.id !== id) m.classList.remove('show'); });
+            const menu = document.getElementById(id);
+            if(menu) menu.classList.toggle('show');
+        }
+
+        // Clicar fora para fechar o menu
+        document.addEventListener('click', (e) => {
+            if (!e.target.matches('.menu-btn')) {
+                const menus = document.querySelectorAll('.dropdown-menu');
+                menus.forEach(m => m.classList.remove('show'));
+            }
+        });
+
+        // ===== Dark Mode =====
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            const newTheme = isDark ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('masso-theme', newTheme);
+            const btn = document.getElementById('theme-toggle');
+            btn.innerHTML = newTheme === 'dark'
+                ? '<i data-lucide="sun" style="width:18px;height:18px"></i>'
+                : '<i data-lucide="moon" style="width:18px;height:18px"></i>';
+            lucide.createIcons();
+        }
+
+        // Aplicar tema salvo ao carregar
+        (function() {
+            const saved = localStorage.getItem('masso-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+            const btn = document.getElementById('theme-toggle');
+            if (btn) {
+                btn.innerHTML = saved === 'dark'
+                    ? '<i data-lucide="sun" style="width:18px;height:18px"></i>'
+                    : '<i data-lucide="moon" style="width:18px;height:18px"></i>';
+            }
+        })();
+    </script>
+    {% block scripts %}{% endblock %}
+    <script>lucide.createIcons();</script>
+</body>
+</html>

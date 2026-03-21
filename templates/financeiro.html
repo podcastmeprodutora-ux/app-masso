@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}Financeiro{% endblock %}
+
+{% block content %}
+<!-- Search Bar -->
+<div class="search-bar" style="margin-bottom: 16px;">
+    <i data-lucide="search" class="search-icon"></i>
+    <input type="text" id="filter-busca" class="form-control" placeholder="Buscar por nome do cliente..." oninput="debouncedLoad()" style="padding-left: 40px;">
+</div>
+
+<!-- Filter Row -->
+<div class="filter-row">
+    <div class="filter-group">
+        <label>Status</label>
+        <select id="filter-status" class="form-control" onchange="loadData()">
+            <option value="">Todos</option>
+            <option value="pendente">Pendente</option>
+            <option value="confirmado">Pago</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Origem</label>
+        <select id="filter-origem" class="form-control" onchange="loadData()">
+            <option value="">Todas</option>
+            <option value="venda">Venda</option>
+            <option value="ajuste">Ajuste</option>
+            <option value="outros">Outros</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Pagamento</label>
+        <select id="filter-forma" class="form-control" onchange="loadData()">
+            <option value="">Todos</option>
+            <option value="pix">PIX</option>
+            <option value="cartao">Cartão</option>
+            <option value="dinheiro">Dinheiro</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Categoria</label>
+        <select id="filter-categoria" class="form-control" onchange="loadData()">
+            <option value="">Todas</option>
+            <option value="sessao_avulsa">Sessão Avulsa</option>
+            <option value="pacote">Pacote</option>
+            <option value="produto">Produto</option>
+        </select>
+    </div>
+</div>
+
+<!-- Date Range -->
+<div class="filter-row" style="margin-top: 10px;">
+    <div class="filter-group">
+        <label>Data Início</label>
+        <input type="date" id="filter-data-inicio" class="form-control" onchange="loadData()">
+    </div>
+    <div class="filter-group">
+        <label>Data Fim</label>
+        <input type="date" id="filter-data-fim" class="form-control" onchange="loadData()">
+    </div>
+    <div class="filter-group" style="display:flex; align-items:flex-end;">
+        <button class="btn btn-secondary" onclick="clearFilters()" style="width:100%; white-space:nowrap;">
+            <i data-lucide="x-circle" style="width:15px;height:15px"></i> Limpar
+        </button>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-cards" id="summary-cards" style="margin-top: 20px; margin-bottom: 20px;">
+    <div class="summary-card summary-card--success">
+        <div class="summary-card__label">Total Recebido</div>
+        <div class="summary-card__value" id="sum-confirmado">R$ 0,00</div>
+    </div>
+    <div class="summary-card summary-card--warning">
+        <div class="summary-card__label">Total Pendente</div>
+        <div class="summary-card__value" id="sum-pendente">R$ 0,00</div>
+    </div>
+    <div class="summary-card summary-card--info">
+        <div class="summary-card__label">Registros</div>
+        <div class="summary-card__value" id="sum-quantidade">0</div>
+    </div>
+</div>
+
+<!-- List -->
+<div class="card-list" id="financeiro-list" style="margin-bottom: 40px;"></div>
+
+<!-- Modal Pagar -->
+<div class="modal" id="modal-pagar">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirmar Recebimento</h3>
+            <button class="close-modal" onclick="closeModal('modal-pagar')">&times;</button>
+        </div>
+        <form id="form-pagar" onsubmit="submitPagar(event)">
+            <input type="hidden" id="pagar-id">
+            <div class="form-group">
+                <label>Forma de Recebimento</label>
+                <select id="forma_pagamento" class="form-control" required>
+                    <option value="pix">PIX</option>
+                    <option value="cartao">Cartão</option>
+                    <option value="dinheiro">Dinheiro</option>
+                </select>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-pagar')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Cobrar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let debounceTimer;
+    function debouncedLoad() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(loadData, 300);
+    }
+
+    function buildQueryParams() {
+        const params = new URLSearchParams();
+        const status = document.getElementById('filter-status').value;
+        const busca = document.getElementById('filter-busca').value.trim();
+        const origem = document.getElementById('filter-origem').value;
+        const forma = document.getElementById('filter-forma').value;
+        const categoria = document.getElementById('filter-categoria').value;
+        const dataInicio = document.getElementById('filter-data-inicio').value;
+        const dataFim = document.getElementById('filter-data-fim').value;
+
+        if (status) params.set('status', status);
+        if (busca) params.set('busca', busca);
+        if (origem) params.set('origem', origem);
+        if (forma) params.set('forma_pagamento', forma);
+        if (categoria) params.set('categoria', categoria);
+        if (dataInicio) params.set('data_inicio', dataInicio);
+        if (dataFim) params.set('data_fim', dataFim);
+
+        return params.toString();
+    }
+
+    function formatCurrency(val) {
+        return 'R$ ' + val.toFixed(2).replace('.', ',');
+    }
+
+    async function loadData() {
+        const qs = buildQueryParams();
+        const response = await apiGet(`/api/financeiro?${qs}`);
+        const data = response.registros;
+        const resumo = response.resumo;
+
+        // Update summary cards
+        document.getElementById('sum-confirmado').textContent = formatCurrency(resumo.total_confirmado);
+        document.getElementById('sum-pendente').textContent = formatCurrency(resumo.total_pendente);
+        document.getElementById('sum-quantidade').textContent = resumo.quantidade;
+
+        // Render list
+        const list = document.getElementById('financeiro-list');
+        list.innerHTML = '';
+
+        if (data.length === 0) {
+            list.innerHTML = '<div style="text-align:center; padding:40px 20px; color:var(--text-muted); font-size:0.9rem;">Nenhum registro encontrado para os filtros selecionados.</div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        data.forEach(f => {
+            const badge = f.status === 'pendente' 
+                ? '<span class="badge badge-warning">Pendente</span>' 
+                : '<span class="badge badge-success">Pago</span>';
+            
+            let formaTag = '';
+            if (f.forma_pagamento) {
+                const formaLabel = { pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro' }[f.forma_pagamento] || f.forma_pagamento;
+                formaTag = `<span class="badge badge-info">${formaLabel}</span>`;
+            }
+
+            let menuHtml = '';
+            if (f.status === 'pendente') {
+                menuHtml = `
+                    <button class="menu-btn" onclick="toggleMenu('menu-fin-${f.id}')">⋮</button>
+                    <div class="dropdown-menu" id="menu-fin-${f.id}">
+                        <button onclick="openPagar(${f.id}); toggleMenu('menu-fin-${f.id}')"><i data-lucide="check-circle" style="width:15px;height:15px;vertical-align:middle;margin-right:4px"></i> Confirmar Recebimento</button>
+                    </div>
+                `;
+            }
+
+            const catMap = { sessao_avulsa: 'Sessão Avulsa', pacote: 'Pacote', produto: 'Produto' };
+            const catLabel = f.categoria_receita ? (catMap[f.categoria_receita] || f.categoria_receita) : '';
+            const origemLabel = { venda: 'Venda', ajuste: 'Ajuste', outros: 'Outros' }[f.origem] || f.origem;
+            const subtitulo = `${f.data} • ${origemLabel.toUpperCase()}${catLabel ? ' • ' + catLabel : ''}`;
+
+            list.innerHTML += `
+                <div class="list-card">
+                    ${menuHtml}
+                    <div class="list-card-title">${f.cliente_nome || 'Cliente Avulso'}</div>
+                    <div class="list-card-subtitle">${subtitulo}</div>
+                    <div class="list-card-details">
+                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                            ${badge}
+                            ${formaTag}
+                        </div>
+                        <span style="font-weight:bold; color:var(--text-main); font-size:1.1rem;">${formatCurrency(f.valor)}</span>
+                    </div>
+                </div>
+            `;
+        });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function clearFilters() {
+        document.getElementById('filter-busca').value = '';
+        document.getElementById('filter-status').value = '';
+        document.getElementById('filter-origem').value = '';
+        document.getElementById('filter-forma').value = '';
+        document.getElementById('filter-categoria').value = '';
+        document.getElementById('filter-data-inicio').value = '';
+        document.getElementById('filter-data-fim').value = '';
+        loadData();
+    }
+
+    function openPagar(id) {
+        document.getElementById('pagar-id').value = id;
+        openModal('modal-pagar');
+    }
+
+    async function submitPagar(e) {
+        e.preventDefault();
+        const id = document.getElementById('pagar-id').value;
+        const forma_pagamento = document.getElementById('forma_pagamento').value;
+        
+        await apiPost(`/api/financeiro/${id}/pagar`, { forma_pagamento });
+        closeModal('modal-pagar');
+        loadData();
+    }
+
+    loadData();
+</script>
+{% endblock %}

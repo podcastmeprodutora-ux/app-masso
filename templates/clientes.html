@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% block title %}Clientes{% endblock %}
+
+{% block content %}
+<div class="actions" style="justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <div class="filters">
+        <label>Filtro:</label>
+        <select id="filter-cliente" class="form-control" style="width: 200px;" onchange="loadData()">
+            <option value="">Todos</option>
+            <option value="com_sessoes">Com Sessões</option>
+            <option value="devendo">Pagamento Pendente</option>
+        </select>
+    </div>
+</div>
+
+<div style="position: relative; margin-bottom: 16px;">
+    <i data-lucide="search" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); width:18px; height:18px; color:var(--text-muted);"></i>
+    <input type="text" id="search-cliente" class="form-control" placeholder="Buscar cliente por nome..." oninput="filterClientes()" style="padding-left: 40px;">
+</div>
+
+<div class="card-list" id="clientes-list"></div>
+
+<button class="fab" onclick="openNovoCliente()" title="Novo Cliente">+</button>
+
+<!-- Modal Novo Cliente -->
+<div class="modal" id="modal-cliente">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Novo Cliente</h3>
+            <button class="close-modal" onclick="closeModal('modal-cliente')">&times;</button>
+        </div>
+        <form onsubmit="submitCliente(event)">
+            <input type="hidden" id="cli-id">
+            <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" id="cli-nome" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Telefone</label>
+                <input type="text" id="cli-telefone" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="cli-email" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Endereço</label>
+                <input type="text" id="cli-endereco" class="form-control" placeholder="Rua, Número, Bairro, Cidade">
+            </div>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-cliente')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Novo Agendamento Integrado -->
+<div class="modal" id="modal-atendimento">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Agendar Sessão</h3>
+            <button class="close-modal" onclick="closeModal('modal-atendimento')">&times;</button>
+        </div>
+        <form onsubmit="submitAtendimento(event)">
+            <input type="hidden" id="atend-cliente-id">
+            
+            <div class="form-group">
+                <label>Data e Hora</label>
+                <input type="datetime-local" id="atend-data" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label>O que será feito nesta sessão?</label>
+                <select id="atend-modalidade" class="form-control" onchange="toggleAtendModalidade()">
+                    <option value="avulso">Serviço Avulso (Nova Venda)</option>
+                    <option value="pacote_novo">Comprar um Novo Pacote</option>
+                    <option value="pacote_ativo">Abater de Pacote Existente</option>
+                </select>
+            </div>
+
+            <!-- Bloco 1: Serviço Avulso -->
+            <div id="blk-avulso">
+                <div class="form-group">
+                    <label>Serviço Base</label>
+                    <select id="atend-servico" class="form-control"></select>
+                </div>
+            </div>
+
+            <!-- Bloco 2: Pacote Novo -->
+            <div id="blk-pacote-novo" style="display:none;">
+                <div class="form-group">
+                    <label>Pacote Oferecido</label>
+                    <select id="atend-pacote-novo" class="form-control"></select>
+                </div>
+            </div>
+
+            <!-- Bloco 3: Pacote Ativo (Uso) -->
+            <div id="blk-pacote-ativo" style="display:none;">
+                <div class="form-group">
+                    <label>Selecione o Pacote do Cliente com Saldo (Banco de Sessões)</label>
+                    <select id="atend-pacote-ativo" class="form-control"></select>
+                </div>
+                <!-- Alerta se nao tiver pacotes -->
+                <small id="msg-sem-pacote" style="color:var(--danger); display:none;">Este cliente não possui pacotes ativos. Selecione outra modalidade.</small>
+            </div>
+
+            <!-- Campos Financeiros Comuns (Avulso e Pacote Novo) -->
+            <div id="blk-financeiro">
+                <div class="form-group">
+                    <label>Valor Total (R$)</label>
+                    <input type="number" step="0.01" id="atend-valor" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Status do Pagamento</label>
+                    <select id="atend-pagamento-status" class="form-control" onchange="toggleAtendPagamentoForma()">
+                        <option value="pendente">Pendente (Cobrar Depois)</option>
+                        <option value="pago">Pago Agora</option>
+                    </select>
+                </div>
+                <div class="form-group" id="blk-forma-pgto" style="display:none;">
+                    <label>Forma de Recebimento</label>
+                    <select id="atend-forma-pgto" class="form-control">
+                        <option value="pix">PIX</option>
+                        <option value="cartao">Cartão</option>
+                        <option value="dinheiro">Dinheiro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-atendimento')">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btn-submit-atend">Confirmar Agendamento</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Histórico Físico -->
+<div class="modal" id="modal-historico">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Histórico Físico do Cliente</h3>
+            <button class="close-modal" onclick="closeModal('modal-historico')">&times;</button>
+        </div>
+        <form onsubmit="submitHistorico(event)">
+            <input type="hidden" id="hist-cliente-id">
+            <div class="form-group">
+                <label>Anotações</label>
+                <textarea id="hist-texto" class="form-control" rows="8"></textarea>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-historico')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let servicos = [];
+    let pacotes = [];
+    let vendasDoCliente = [];
+
+    function copiarEndereco(endereco) {
+        navigator.clipboard.writeText(endereco).then(() => {
+            alert('📋 Endereço copiado para a área de transferência!');
+        }).catch(() => {
+            // Fallback para navegadores mais antigos
+            const ta = document.createElement('textarea');
+            ta.value = endereco;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            alert('📋 Endereço copiado!');
+        });
+    }
+
+    function abrirMaps(endereco) {
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(endereco)}`;
+        window.open(url, '_blank');
+    }
+
+    async function fetchData() {
+        servicos = await apiGet('/api/servicos');
+        pacotes = await apiGet('/api/pacotes');
+        
+        let sOpts = servicos.map(s => `<option value="${s.id}">${s.nome} [${s.local}] - R$ ${s.preco_base}</option>`);
+        document.getElementById('atend-servico').innerHTML = sOpts.join('');
+        
+        let pOpts = pacotes.map(p => `<option value="${p.id}">${p.nome} - R$ ${p.valor_total}</option>`);
+        document.getElementById('atend-pacote-novo').innerHTML = pOpts.join('');
+    }
+
+    async function loadData() {
+        const filtro = document.getElementById('filter-cliente').value;
+        const data = await apiGet(`/api/clientes?filtro=${filtro}`);
+        window.clientesData = data;
+        const list = document.getElementById('clientes-list');
+        list.innerHTML = '';
+        data.forEach(c => {
+            const badgeClass = c.status === 'ativo' ? 'badge-success' : 'badge-secondary';
+            list.innerHTML += `
+                <div class="list-card">
+                    <button class="menu-btn" onclick="toggleMenu('menu-cli-${c.id}')">⋮</button>
+                    <div class="dropdown-menu" id="menu-cli-${c.id}">
+                        <button onclick="abreModalAtendimento(${c.id}); toggleMenu('menu-cli-${c.id}')"><i data-lucide="calendar-plus" style="width:15px;height:15px;vertical-align:middle;margin-right:6px"></i>Agendar Sessão</button>
+                        <button onclick="abreModalHistorico(${c.id}); toggleMenu('menu-cli-${c.id}')"><i data-lucide="file-text" style="width:15px;height:15px;vertical-align:middle;margin-right:6px"></i>Histórico Físico</button>
+                        <button onclick="editCliente(${c.id}); toggleMenu('menu-cli-${c.id}')"><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:middle;margin-right:6px"></i>Editar Cliente</button>
+                        <button class="text-danger" onclick="deleteCliente(${c.id}); toggleMenu('menu-cli-${c.id}')"><i data-lucide="trash-2" style="width:15px;height:15px;vertical-align:middle;margin-right:6px"></i>Excluir / Inativar</button>
+                    </div>
+                    
+                    <div class="list-card-title">${c.nome}</div>
+                    <div class="list-card-subtitle">${c.telefone || 'Sem telefone cadastrado'}</div>
+                    ${c.endereco ? `
+                    <div style="margin-top: 8px; font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="map-pin" style="width:14px;height:14px;flex-shrink:0"></i> ${c.endereco}
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button class="btn btn-secondary" style="font-size: 0.7rem; padding: 5px 10px;" onclick="copiarEndereco('${c.endereco.replace(/'/g, "\\'")}')">
+                            <i data-lucide="copy" style="width:13px;height:13px"></i> Copiar
+                        </button>
+                        <button class="btn btn-primary" style="font-size: 0.7rem; padding: 5px 10px;" onclick="abrirMaps('${c.endereco.replace(/'/g, "\\'")}')">
+                            <i data-lucide="navigation" style="width:13px;height:13px"></i> Rota
+                        </button>
+                    </div>
+                    ` : ''}
+                    <div class="list-card-details">
+                        <span class="badge ${badgeClass}">${c.status.toUpperCase()}</span>
+                    </div>
+                </div>
+            `;
+        });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function filterClientes() {
+        const termo = document.getElementById('search-cliente').value.toLowerCase();
+        const cards = document.querySelectorAll('#clientes-list .list-card');
+        cards.forEach(card => {
+            const nome = card.querySelector('.list-card-title')?.textContent.toLowerCase() || '';
+            card.style.display = nome.includes(termo) ? '' : 'none';
+        });
+    }
+
+    function openNovoCliente() {
+        document.getElementById('cli-id').value = '';
+        document.getElementById('cli-nome').value = '';
+        document.getElementById('cli-telefone').value = '';
+        document.getElementById('cli-email').value = '';
+        document.getElementById('cli-endereco').value = '';
+        openModal('modal-cliente');
+    }
+
+    function editCliente(id) {
+        const c = window.clientesData.find(x => x.id === id);
+        if(!c) return;
+        document.getElementById('cli-id').value = c.id;
+        document.getElementById('cli-nome').value = c.nome;
+        document.getElementById('cli-telefone').value = c.telefone || '';
+        document.getElementById('cli-email').value = c.email || '';
+        document.getElementById('cli-endereco').value = c.endereco || '';
+        openModal('modal-cliente');
+    }
+
+    async function deleteCliente(id) {
+        if(!confirm("Atenção: Tem certeza que deseja excluir/inativar este cliente?")) return;
+        await fetch('/api/clientes/' + id, { method: 'DELETE' });
+        loadData();
+    }
+
+    async function submitCliente(e) {
+        e.preventDefault();
+        const id = document.getElementById('cli-id').value;
+        const payload = {
+            nome: document.getElementById('cli-nome').value,
+            telefone: document.getElementById('cli-telefone').value,
+            email: document.getElementById('cli-email').value,
+            endereco: document.getElementById('cli-endereco').value
+        };
+        
+        if (id) {
+            await fetch('/api/clientes/' + id, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await apiPost('/api/clientes', payload);
+        }
+        
+        closeModal('modal-cliente');
+        loadData();
+    }
+
+    function toggleAtendModalidade() {
+        const mod = document.getElementById('atend-modalidade').value;
+        const blkAvulso = document.getElementById('blk-avulso');
+        const blkPacoteNovo = document.getElementById('blk-pacote-novo');
+        const blkPacoteAtivo = document.getElementById('blk-pacote-ativo');
+        const blkFinanceiro = document.getElementById('blk-financeiro');
+
+        blkAvulso.style.display = 'none';
+        blkPacoteNovo.style.display = 'none';
+        blkPacoteAtivo.style.display = 'none';
+        blkFinanceiro.style.display = 'none';
+        document.getElementById('msg-sem-pacote').style.display = 'none';
+
+        if (mod === 'avulso') {
+            blkAvulso.style.display = 'block';
+            blkFinanceiro.style.display = 'block';
+            updateValor('avulso');
+        } else if (mod === 'pacote_novo') {
+            blkPacoteNovo.style.display = 'block';
+            blkFinanceiro.style.display = 'block';
+            updateValor('pacote_novo');
+        } else if (mod === 'pacote_ativo') {
+            blkPacoteAtivo.style.display = 'block';
+            if (document.getElementById('atend-pacote-ativo').options.length === 0) {
+                document.getElementById('msg-sem-pacote').style.display = 'block';
+                document.getElementById('btn-submit-atend').disabled = true;
+            } else {
+                document.getElementById('btn-submit-atend').disabled = false;
+            }
+        }
+    }
+
+    function toggleAtendPagamentoForma() {
+        const status = document.getElementById('atend-pagamento-status').value;
+        document.getElementById('blk-forma-pgto').style.display = (status === 'pago') ? 'block' : 'none';
+    }
+
+    function updateValor(tipo) {
+        if (tipo === 'avulso') {
+            const servId = parseInt(document.getElementById('atend-servico').value);
+            const serv = servicos.find(s => s.id === servId);
+            if(serv) document.getElementById('atend-valor').value = serv.preco_base;
+        } else if (tipo === 'pacote_novo') {
+            const pacId = parseInt(document.getElementById('atend-pacote-novo').value);
+            const pac = pacotes.find(p => p.id === pacId);
+            if(pac) document.getElementById('atend-valor').value = pac.valor_total;
+        }
+    }
+
+    document.getElementById('atend-servico').addEventListener('change', () => updateValor('avulso'));
+    document.getElementById('atend-pacote-novo').addEventListener('change', () => updateValor('pacote_novo'));
+
+    async function abreModalAtendimento(cliId) {
+        document.getElementById('atend-cliente-id').value = cliId;
+        
+        const pacotesAtivos = await apiGet(`/api/clientes/${cliId}/pacotes_ativos`);
+        let optPacotes = '';
+        pacotesAtivos.forEach(p => {
+            optPacotes += `<option value="${p.venda_id}" data-servico="${p.servico_id}">#${p.venda_id} - ${p.pacote_nome} (${p.qtd_restante} restantes)</option>`;
+        });
+        document.getElementById('atend-pacote-ativo').innerHTML = optPacotes;
+
+        document.getElementById('atend-modalidade').value = 'avulso';
+        document.getElementById('atend-valor').value = '';
+        document.getElementById('atend-pagamento-status').value = 'pendente';
+        document.getElementById('btn-submit-atend').disabled = false;
+        
+        const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+        document.getElementById('atend-data').value = localISOTime;
+
+        toggleAtendModalidade();
+        toggleAtendPagamentoForma();
+        openModal('modal-atendimento');
+    }
+
+    async function submitAtendimento(e) {
+        e.preventDefault();
+        const cliId = document.getElementById('atend-cliente-id').value;
+        const mod = document.getElementById('atend-modalidade').value;
+        const dataAtend = document.getElementById('atend-data').value;
+        
+        try {
+            if (mod === 'avulso' || mod === 'pacote_novo') {
+                const isAvulso = mod === 'avulso';
+                await apiPost('/api/vendas', {
+                    cliente_id: cliId,
+                    tipo: isAvulso ? 'avulso' : 'pacote',
+                    servico_id: isAvulso ? document.getElementById('atend-servico').value : null,
+                    pacote_id: !isAvulso ? document.getElementById('atend-pacote-novo').value : null,
+                    data_agendamento: dataAtend,
+                    valor_total: document.getElementById('atend-valor').value,
+                    status_pagamento: document.getElementById('atend-pagamento-status').value,
+                    forma_pagamento: document.getElementById('atend-forma-pgto').value
+                });
+                alert('Sessão agendada com registro financeiro lançado com sucesso!');
+            } else if (mod === 'pacote_ativo') {
+                const selectPacote = document.getElementById('atend-pacote-ativo');
+                const vendaId = selectPacote.value;
+                const servicoId = selectPacote.options[selectPacote.selectedIndex].getAttribute('data-servico');
+                
+                await apiPost('/api/atendimentos', {
+                    cliente_id: cliId,
+                    servico_id: servicoId,
+                    data_atendimento: dataAtend,
+                    origem: 'pacote',
+                    venda_id: vendaId,
+                    status_atendimento: 'agendado',
+                    valor: 0.0
+                });
+                alert('Sessão agendada! O saldo de sessões será deduzido assim que a sessão for concluída.');
+            }
+            closeModal('modal-atendimento');
+            loadData();
+        } catch(e) {
+            alert('Erro ao processar a requisição.');
+        }
+    }
+
+    async function abreModalHistorico(cliId) {
+        document.getElementById('hist-cliente-id').value = cliId;
+        const res = await apiGet(`/api/clientes/${cliId}/historico`);
+        document.getElementById('hist-texto').value = res.historico_fisico || '';
+        openModal('modal-historico');
+    }
+
+    async function submitHistorico(e) {
+        e.preventDefault();
+        const cliId = document.getElementById('hist-cliente-id').value;
+        await fetch(`/api/clientes/${cliId}/historico`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ historico_fisico: document.getElementById('hist-texto').value })
+        });
+        closeModal('modal-historico');
+        alert('Histórico salvo!');
+        loadData();
+    }
+
+    fetchData().then(loadData);
+</script>
+{% endblock %}
