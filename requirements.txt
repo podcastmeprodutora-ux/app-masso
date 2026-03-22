@@ -9,3 +9,4 @@ click==8.3.1
 blinker==1.9.0
 greenlet==3.3.2
 Flask-BasicAuth
+psycopg2-binary
