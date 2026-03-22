@@ -265,7 +265,8 @@ def obj_vendas():
         data_agendamento_str = data.get('data_agendamento')
         if data_agendamento_str:
             data_agendamento = datetime.fromisoformat(data_agendamento_str)
-            status_atend = 'realizado' if data_agendamento < datetime.utcnow() else 'agendado'
+            now_br = datetime.utcnow() - timedelta(hours=3)
+            status_atend = 'realizado' if data_agendamento < now_br else 'agendado'
                 
             if tipo == 'avulso':
                 atend = Atendimento(
